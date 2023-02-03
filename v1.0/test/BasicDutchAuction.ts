@@ -2,123 +2,81 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { BasicDutchAuction } from "../typechain-types/BasicDutchAuction";
 
 describe("BasicDutchAuction", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
+
+  const NUM_BLOCKS_AUCTION_OPEN = 10;
+  const RESERVE_PRICE = 500;
+  const OFFER_PRICE_DECREMENT = 50;
+
   async function deployBasicDAFixture() {
-    const AUCTION_NUM = 365 * 24 * 60 * 60;
-    const ONE_GWEI = 1_000_000_000;
-
-    const lockedAmount = ONE_GWEI;
-    const unlockTime = (await time.latest()) + ONE_YEAR_IN_SECS;
-
     // Contracts are deployed using the first signer/account by default
-    const [owner, otherAccount] = await ethers.getSigners();
+    const [owner, account1, account2] = await ethers.getSigners();
 
-    const Lock = await ethers.getContractFactory("Lock");
-    const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+    const BasicDutchAuction = await ethers.getContractFactory(
+      "BasicDutchAuction"
+    );
 
-    return { lock, unlockTime, lockedAmount, owner, otherAccount };
+    const basicDutchAuction = await BasicDutchAuction.deploy(
+      RESERVE_PRICE,
+      NUM_BLOCKS_AUCTION_OPEN,
+      OFFER_PRICE_DECREMENT
+    );
+
+    return { basicDutchAuction, owner, account1, account2 };
   }
 
   describe("Deployment", function () {
-    it("Should set the right unlockTime", async function () {
-      const { lock, unlockTime } = await loadFixture(deployOneYearLockFixture);
-
-      expect(await lock.unlockTime()).to.equal(unlockTime);
-    });
-
     it("Should set the right owner", async function () {
-      const { lock, owner } = await loadFixture(deployOneYearLockFixture);
-
-      expect(await lock.owner()).to.equal(owner.address);
-    });
-
-    it("Should receive and store the funds to lock", async function () {
-      const { lock, lockedAmount } = await loadFixture(
-        deployOneYearLockFixture
+      const { basicDutchAuction, owner, account1 } = await loadFixture(
+        deployBasicDAFixture
       );
 
-      expect(await ethers.provider.getBalance(lock.address)).to.equal(
-        lockedAmount
-      );
+      expect(await basicDutchAuction.owner()).to.equal(owner.address);
     });
+    it("Should have no winner", async function () {
+      const { basicDutchAuction, owner, account1 } = await loadFixture(
+        deployBasicDAFixture
+      );
 
-    it("Should fail if the unlockTime is not in the future", async function () {
-      // We don't use the fixture here because we want a different deployment
-      const latestTime = await time.latest();
-      const Lock = await ethers.getContractFactory("Lock");
-      await expect(Lock.deploy(latestTime, { value: 1 })).to.be.revertedWith(
-        "Unlock time should be in the future"
+      expect(await basicDutchAuction.winner()).to.equal(
+        ethers.constants.AddressZero
       );
     });
   });
 
-  describe("Withdrawals", function () {
-    describe("Validations", function () {
-      it("Should revert with the right error if called too soon", async function () {
-        const { lock } = await loadFixture(deployOneYearLockFixture);
+  describe("Bids", function () {
+    it("Should have current price as per formula", async function () {
+      const { basicDutchAuction, account1 } = await loadFixture(
+        deployBasicDAFixture
+      );
 
-        await expect(lock.withdraw()).to.be.revertedWith(
-          "You can't withdraw yet"
-        );
-      });
+      const initialPrice =
+        RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
 
-      it("Should revert with the right error if called from another account", async function () {
-        const { lock, unlockTime, otherAccount } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        // We can increase the time in Hardhat Network
-        await time.increaseTo(unlockTime);
-
-        // We use lock.connect() to send a transaction from another account
-        await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
-          "You aren't the owner"
-        );
-      });
-
-      it("Shouldn't fail if the unlockTime has arrived and the owner calls it", async function () {
-        const { lock, unlockTime } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        // Transactions are sent using the first signer by default
-        await time.increaseTo(unlockTime);
-
-        await expect(lock.withdraw()).not.to.be.reverted;
-      });
+      expect(await basicDutchAuction.getCurrentPrice()).to.equal(initialPrice);
     });
 
-    describe("Events", function () {
-      it("Should emit an event on withdrawals", async function () {
-        const { lock, unlockTime, lockedAmount } = await loadFixture(
-          deployOneYearLockFixture
-        );
+    it("Should reject low bids", async function () {
+      const { basicDutchAuction, account1 } = await loadFixture(
+        deployBasicDAFixture
+      );
 
-        await time.increaseTo(unlockTime);
+      //This is the Bid price which would be accepted two blocks later
+      const lowBidPrice =
+        RESERVE_PRICE +
+        NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT -
+        OFFER_PRICE_DECREMENT * 2;
 
-        await expect(lock.withdraw())
-          .to.emit(lock, "Withdrawal")
-          .withArgs(lockedAmount, anyValue); // We accept any value as `when` arg
-      });
-    });
-
-    describe("Transfers", function () {
-      it("Should transfer the funds to the owner", async function () {
-        const { lock, unlockTime, lockedAmount, owner } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        await time.increaseTo(unlockTime);
-
-        await expect(lock.withdraw()).to.changeEtherBalances(
-          [owner, lock],
-          [lockedAmount, -lockedAmount]
-        );
-      });
+      await expect(
+        basicDutchAuction.connect(account1).bid({
+          value: lowBidPrice,
+        })
+      ).to.be.revertedWith("The wei value sent is not acceptable");
     });
   });
 });

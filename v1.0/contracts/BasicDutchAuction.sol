@@ -52,7 +52,7 @@ contract BasicDutchAuction {
         //Throw error if the gwei value sent is less than the current accepted price
         require(
             msg.value >= currentPrice,
-            "The gwei value sent is not acceptable"
+            "The wei value sent is not acceptable"
         );
 
         //Since there is no actual asset to transfer on-chain
