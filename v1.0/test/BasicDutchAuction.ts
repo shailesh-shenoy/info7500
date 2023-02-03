@@ -39,6 +39,7 @@ describe("BasicDutchAuction", function () {
 
       expect(await basicDutchAuction.owner()).to.equal(owner.address);
     });
+
     it("Should have no winner", async function () {
       const { basicDutchAuction, owner, account1 } = await loadFixture(
         deployBasicDAFixture
@@ -48,9 +49,7 @@ describe("BasicDutchAuction", function () {
         ethers.constants.AddressZero
       );
     });
-  });
 
-  describe("Bids", function () {
     it("Should have initial price as per formula", async function () {
       const { basicDutchAuction, account1 } = await loadFixture(
         deployBasicDAFixture
@@ -61,7 +60,9 @@ describe("BasicDutchAuction", function () {
 
       expect(await basicDutchAuction.getCurrentPrice()).to.equal(initialPrice);
     });
+  });
 
+  describe("Bids", function () {
     it("Should have expected current price after 5 blocks as per formula", async function () {
       const { basicDutchAuction, account1 } = await loadFixture(
         deployBasicDAFixture
@@ -118,10 +119,7 @@ describe("BasicDutchAuction", function () {
       const initialPrice =
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
       //Get price after 4 blocks
-      const highBidPrice =
-        RESERVE_PRICE +
-        NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT -
-        OFFER_PRICE_DECREMENT * 4;
+      const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
 
       //Bid function should succeed
       expect(
@@ -144,10 +142,7 @@ describe("BasicDutchAuction", function () {
       const initialPrice =
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
       //Get price after 4 blocks
-      const highBidPrice =
-        RESERVE_PRICE +
-        NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT -
-        OFFER_PRICE_DECREMENT * 4;
+      const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
 
       //Bid function should succeed
       expect(
@@ -174,10 +169,7 @@ describe("BasicDutchAuction", function () {
       const initialPrice =
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
       //Get price after 4 blocks
-      const highBidPrice =
-        RESERVE_PRICE +
-        NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT -
-        OFFER_PRICE_DECREMENT * 4;
+      const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
 
       //Bid function should fail with auction expired message
       await expect(
@@ -200,6 +192,29 @@ describe("BasicDutchAuction", function () {
       await mine(5);
       //Should return reserve price after 15 blocks are mined
       expect(await basicDutchAuction.getCurrentPrice()).to.equal(RESERVE_PRICE);
+    });
+
+    it("Should send the accepted bid wei value from bidder's account to owner's account", async function () {
+      const { basicDutchAuction, owner, account1 } = await loadFixture(
+        deployBasicDAFixture
+      );
+      //mine 5 blocks
+      await mine(5);
+
+      const initialPrice =
+        RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
+      //Get price after 4 blocks
+      const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
+
+      //Bid function should succeed and teansfer wei value from account1 to owner
+      await expect(
+        basicDutchAuction.connect(account1).bid({
+          value: highBidPrice,
+        })
+      ).to.changeEtherBalances(
+        [account1, owner],
+        [-highBidPrice, highBidPrice]
+      );
     });
   });
 });
