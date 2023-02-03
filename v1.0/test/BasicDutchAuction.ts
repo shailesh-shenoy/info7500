@@ -157,11 +157,49 @@ describe("BasicDutchAuction", function () {
       ).to.not.be.reverted;
 
       //Bid should be rejected
-      expect(
-        await basicDutchAuction.connect(account2).bid({
+      await expect(
+        basicDutchAuction.connect(account2).bid({
           value: highBidPrice,
         })
       ).to.be.revertedWith("Auction has already concluded");
+    });
+
+    it("Bids should not be accepted after the auction expires", async function () {
+      const { basicDutchAuction, account1, account2 } = await loadFixture(
+        deployBasicDAFixture
+      );
+      //mine 5 blocks
+      await mine(NUM_BLOCKS_AUCTION_OPEN + 1);
+
+      const initialPrice =
+        RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
+      //Get price after 4 blocks
+      const highBidPrice =
+        RESERVE_PRICE +
+        NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT -
+        OFFER_PRICE_DECREMENT * 4;
+
+      //Bid function should fail with auction expired message
+      await expect(
+        basicDutchAuction.connect(account2).bid({
+          value: highBidPrice,
+        })
+      ).to.be.revertedWith("Auction expired");
+    });
+
+    it("Should return reservePrice when max number of auction blocks have elapsed", async function () {
+      const { basicDutchAuction, account1, account2 } = await loadFixture(
+        deployBasicDAFixture
+      );
+      //mine 10 blocks
+      await mine(NUM_BLOCKS_AUCTION_OPEN);
+      //Should return reserve price after 10 blocks are mined
+      expect(await basicDutchAuction.getCurrentPrice()).to.equal(RESERVE_PRICE);
+
+      //Mine 5 more blocks
+      await mine(5);
+      //Should return reserve price after 15 blocks are mined
+      expect(await basicDutchAuction.getCurrentPrice()).to.equal(RESERVE_PRICE);
     });
   });
 });

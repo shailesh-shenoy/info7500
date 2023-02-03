@@ -20,14 +20,14 @@
     </h1>
     <div class='clearfix'>
       <div class='fl pad1y space-right2'>
-        <span class="strong">77.78% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Statements</span>
-        <span class='fraction'>14/18</span>
+        <span class='fraction'>18/18</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">50% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Branches</span>
-        <span class='fraction'>4/8</span>
+        <span class='fraction'>8/8</span>
       </div>
       <div class='fl pad1y space-right2'>
         <span class="strong">100% </span>
@@ -35,13 +35,13 @@
         <span class='fraction'>3/3</span>
       </div>
       <div class='fl pad1y space-right2'>
-        <span class="strong">77.78% </span>
+        <span class="strong">100% </span>
         <span class="quiet">Lines</span>
-        <span class='fraction'>14/18</span>
+        <span class='fraction'>18/18</span>
       </div>
     </div>
   </div>
-  <div class='status-line medium'></div>
+  <div class='status-line high'></div>
 <pre><table class="coverage">
 <tr><td class="line-count quiet">1
 2
@@ -143,38 +143,38 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-yes">2×</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8×</span>
+<span class="cline-any cline-yes">8×</span>
 <span class="cline-any cline-yes">2×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1×</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-yes">6×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-yes">2×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2×</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -212,8 +212,8 @@ contract BasicDutchAuction {
     //Calculate the current accepted price as per dutch auction rules
     function getCurrentPrice() public view returns (uint256) {
         uint256 blocksElapsed = block.number - startBlock;
-        <span class="missing-if-branch" title="if path not taken" >I</span>if (blocksElapsed &gt;= numBlocksAuctionOpen) {
-<span class="cstat-no" title="statement not covered" >            return reservePrice;</span>
+        if (blocksElapsed &gt;= numBlocksAuctionOpen) {
+            return reservePrice;
         } else {
             return initialPrice - (blocksElapsed * offerPriceDecrement);
         }
@@ -221,17 +221,17 @@ contract BasicDutchAuction {
 &nbsp;
     function bid() external payable returns (address) {
         //Throw error if auction has already been won
-        <span class="missing-if-branch" title="else path not taken" >E</span>require(winner == address(0), "Auction has already concluded");
+        require(winner == address(0), "Auction has already concluded");
 &nbsp;
         //Check number of blocks which have elapsed since the start
         uint256 blocksElapsed = block.number - startBlock;
         //Throw error if auction has expired already
-        <span class="missing-if-branch" title="else path not taken" >E</span>require(blocksElapsed &lt;= numBlocksAuctionOpen, "Auction expired");
+        require(blocksElapsed &lt;= numBlocksAuctionOpen, "Auction expired");
 &nbsp;
         //Get the current accepted price as per dutch auction rules
         uint256 currentPrice = getCurrentPrice();
         //Throw error if the gwei value sent is less than the current accepted price
-        <span class="missing-if-branch" title="if path not taken" >I</span>require(
+        require(
             msg.value &gt;= currentPrice,
             "The wei value sent is not acceptable"
         );
@@ -239,10 +239,10 @@ contract BasicDutchAuction {
         //Since there is no actual asset to transfer on-chain
         //we set the bidder's address as winner and stop the auction
         //Transfer the bid amount to owner
-<span class="cstat-no" title="statement not covered" >        winner = msg.sender</span>;
-<span class="cstat-no" title="statement not covered" >        owner.transfer(msg.value)</span>;
+        winner = msg.sender;
+        owner.transfer(msg.value);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        return winner;</span>
+        return winner;
     }
     // function finalize() public {}
     // function refund(uint256 refundAmount) public {}
@@ -253,7 +253,7 @@ contract BasicDutchAuction {
 </div><!-- /wrapper -->
 <div class='footer quiet pad2 space-top1 center small'>
   Code coverage
-  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Thu Feb 02 2023 23:02:00 GMT-0500 (Eastern Standard Time)
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Fri Feb 03 2023 00:17:18 GMT-0500 (Eastern Standard Time)
 </div>
 </div>
 <script src="../prettify.js"></script>
