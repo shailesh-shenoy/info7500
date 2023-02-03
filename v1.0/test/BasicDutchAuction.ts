@@ -1,5 +1,6 @@
 import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
+import { mine } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { BasicDutchAuction } from "../typechain-types/BasicDutchAuction";
@@ -50,7 +51,7 @@ describe("BasicDutchAuction", function () {
   });
 
   describe("Bids", function () {
-    it("Should have current price as per formula", async function () {
+    it("Should have initial price as per formula", async function () {
       const { basicDutchAuction, account1 } = await loadFixture(
         deployBasicDAFixture
       );
@@ -61,22 +62,106 @@ describe("BasicDutchAuction", function () {
       expect(await basicDutchAuction.getCurrentPrice()).to.equal(initialPrice);
     });
 
+    it("Should have expected current price after 5 blocks as per formula", async function () {
+      const { basicDutchAuction, account1 } = await loadFixture(
+        deployBasicDAFixture
+      );
+
+      const initialPrice =
+        RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
+
+      const priceAfter5Blocks = initialPrice - 5 * OFFER_PRICE_DECREMENT;
+      //Mine 5 blocks
+      await mine(5);
+
+      expect(await basicDutchAuction.getCurrentPrice()).to.equal(
+        priceAfter5Blocks
+      );
+    });
+
     it("Should reject low bids", async function () {
       const { basicDutchAuction, account1 } = await loadFixture(
         deployBasicDAFixture
       );
 
+      //Mine 1 block
+      await mine(1);
+
       //This is the Bid price which would be accepted two blocks later
+      //But should be rejected now
       const lowBidPrice =
         RESERVE_PRICE +
         NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT -
-        OFFER_PRICE_DECREMENT * 2;
+        OFFER_PRICE_DECREMENT * 3;
 
       await expect(
         basicDutchAuction.connect(account1).bid({
           value: lowBidPrice,
         })
       ).to.be.revertedWith("The wei value sent is not acceptable");
+
+      //Test with an arbitrarily low value too
+      await expect(
+        basicDutchAuction.connect(account1).bid({
+          value: 50,
+        })
+      ).to.be.revertedWith("The wei value sent is not acceptable");
+    });
+
+    it("Should accept bids higher than currentPrice and set winner as bidder's address", async function () {
+      const { basicDutchAuction, account1 } = await loadFixture(
+        deployBasicDAFixture
+      );
+      //mine 5 blocks
+      await mine(5);
+
+      const initialPrice =
+        RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
+      //Get price after 4 blocks
+      const highBidPrice =
+        RESERVE_PRICE +
+        NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT -
+        OFFER_PRICE_DECREMENT * 4;
+
+      //Bid function should succeed
+      expect(
+        await basicDutchAuction.connect(account1).bid({
+          value: highBidPrice,
+        })
+      ).to.not.be.reverted;
+
+      //Winner should be account1
+      expect(await basicDutchAuction.winner()).to.equal(account1.address);
+    });
+
+    it("Should reject bids after a winning bid is already accepted", async function () {
+      const { basicDutchAuction, account1, account2 } = await loadFixture(
+        deployBasicDAFixture
+      );
+      //mine 5 blocks
+      await mine(5);
+
+      const initialPrice =
+        RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
+      //Get price after 4 blocks
+      const highBidPrice =
+        RESERVE_PRICE +
+        NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT -
+        OFFER_PRICE_DECREMENT * 4;
+
+      //Bid function should succeed
+      expect(
+        await basicDutchAuction.connect(account1).bid({
+          value: highBidPrice,
+        })
+      ).to.not.be.reverted;
+
+      //Bid should be rejected
+      expect(
+        await basicDutchAuction.connect(account2).bid({
+          value: highBidPrice,
+        })
+      ).to.be.revertedWith("Auction has already concluded");
     });
   });
 });
