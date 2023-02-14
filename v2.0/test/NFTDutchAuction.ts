@@ -21,7 +21,9 @@ describe("NFTDutchAuction", function () {
     //Deploy and mint NFT contract
     const RandomMusicNFT = await ethers.getContractFactory("RandomMusicNFT");
     const randomMusicNFT = await RandomMusicNFT.deploy();
-    await randomMusicNFT.mintNFT(owner.address, TOKEN_URI);
+    await (
+      await randomMusicNFT.mintNFT(owner.address, TOKEN_URI)
+    ).to;
 
     const NFTDutchAuction = await ethers.getContractFactory("NFTDutchAuction");
 
@@ -53,7 +55,34 @@ describe("NFTDutchAuction", function () {
       );
     });
 
-    it("Should have initial price as per formula", async function () {
+    it("Should not allow Auction creator to deploy contract if the NFT does not belong to them", async function () {
+      const { randomMusicNFT, account1 } = await loadFixture(
+        deployNFTDAFixture
+      );
+
+      //Mint NFT with tokenId 1 to account1
+      await expect(randomMusicNFT.mintNFT(account1.address, "Test URI"))
+        .to.emit(randomMusicNFT, "Transfer")
+        .withArgs(ethers.constants.AddressZero, account1.address, 1);
+
+      //Deploy NFT contract with account1's tokenId, should fail
+      const NFTDutchAuction = await ethers.getContractFactory(
+        "NFTDutchAuction"
+      );
+      await expect(
+        NFTDutchAuction.deploy(
+          randomMusicNFT.address,
+          1,
+          RESERVE_PRICE,
+          NUM_BLOCKS_AUCTION_OPEN,
+          OFFER_PRICE_DECREMENT
+        )
+      ).to.revertedWith(
+        "The NFT tokenId does not belong to the Auction's Owner"
+      );
+    });
+
+    it("Should have the initial price as per Dutch Auction formula", async function () {
       const { nftDutchAuction } = await loadFixture(deployNFTDAFixture);
 
       const initialPrice =
@@ -213,6 +242,33 @@ describe("NFTDutchAuction", function () {
       ).to.changeEtherBalances(
         [account1, owner],
         [-highBidPrice, highBidPrice]
+      );
+    });
+
+    it("Should transfer the NFT from Owner's account to Bidder's account", async function () {
+      const { nftDutchAuction, randomMusicNFT, owner, account1 } =
+        await loadFixture(deployNFTDAFixture);
+      //mine 5 blocks
+      await mine(5);
+
+      const initialPrice =
+        RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
+      //Get price after 4 blocks
+      const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
+
+      //Bid function should succeed and teansfer wei value from account1 to owner
+      await expect(
+        nftDutchAuction.connect(account1).bid({
+          value: highBidPrice,
+        })
+      )
+        .to.emit(randomMusicNFT, "Transfer")
+        .withArgs(owner.address, account1.address, NFT_TOKEN_ID);
+
+      //NFT contract should reflect the NFT ownership in account1's address
+
+      expect(await randomMusicNFT.ownerOf(NFT_TOKEN_ID)).to.equal(
+        account1.address
       );
     });
   });
