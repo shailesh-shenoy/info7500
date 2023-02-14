@@ -1,6 +1,6 @@
-# Sample Hardhat Project
+# NFT Dutch Auction
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+This project demonstrates a NFT Dutch Auction. It comes with a NFT Contract, a NFTDutchAuction contract, test cases for both contracts, and a solidity coverage report.
 
 Try running some of the following tasks:
 
@@ -8,6 +8,5 @@ Try running some of the following tasks:
 npx hardhat help
 npx hardhat test
 REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
+npx hardhat coverage
 ```
