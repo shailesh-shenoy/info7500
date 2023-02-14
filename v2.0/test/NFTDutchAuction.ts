@@ -271,5 +271,29 @@ describe("NFTDutchAuction", function () {
         account1.address
       );
     });
+
+    it("Owner should still own the NFT after the auction expires if there is no winning bid", async function () {
+      const { nftDutchAuction, randomMusicNFT, owner, account2 } =
+        await loadFixture(deployNFTDAFixture);
+      //mine 5 blocks
+      await mine(NUM_BLOCKS_AUCTION_OPEN + 1);
+
+      const initialPrice =
+        RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
+      //Get price after 4 blocks
+      const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
+
+      //Bid function should fail with auction expired message
+      await expect(
+        nftDutchAuction.connect(account2).bid({
+          value: highBidPrice,
+        })
+      ).to.be.revertedWith("Auction expired");
+
+      //NFT should still belong to owner
+      expect(await randomMusicNFT.ownerOf(NFT_TOKEN_ID)).to.equal(
+        owner.address
+      );
+    });
   });
 });
