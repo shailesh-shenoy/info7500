@@ -4,7 +4,7 @@ import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
 import { NFTDutchAuctionERC20Bids } from "../typechain-types/contracts/NFTDutchAuctionERC20Bids";
 
-describe("NFTDutchAuctionERC20Bids", function () {
+describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
@@ -15,7 +15,7 @@ describe("NFTDutchAuctionERC20Bids", function () {
   const NFT_TOKEN_ID: number = 0;
   const TOKEN_URI = "https://www.youtube.com/watch?v=pXRviuL6vMY";
 
-  async function deployNFTDAFixture() {
+  async function deployNFTDAUpgradeFixture() {
     // Contracts are deployed using the first signer/account by default
     const [owner, account1, account2] = await ethers.getSigners();
 
@@ -45,35 +45,76 @@ describe("NFTDutchAuctionERC20Bids", function () {
       ]
     );
 
-    randomMusicNFT.approve(nftDutchAuctionERC20Bids.address, NFT_TOKEN_ID);
+    const NFTDutchAuctionERC20Bids_v2 = await ethers.getContractFactory(
+      "NFTDutchAuctionERC20Bids_v2"
+    );
+    const nftDutchAuctionERC20Bids_v2 = await upgrades.upgradeProxy(
+      nftDutchAuctionERC20Bids.address,
+      NFTDutchAuctionERC20Bids_v2
+    );
+
+    await randomMusicNFT.approve(
+      nftDutchAuctionERC20Bids_v2.address,
+      NFT_TOKEN_ID
+    );
 
     return {
       randomMusicNFT,
       tempoToken,
       nftDutchAuctionERC20Bids,
+      nftDutchAuctionERC20Bids_v2,
       owner,
       account1,
       account2,
     };
   }
 
-  describe("Deployment", function () {
-    it("Should set the right owner", async function () {
-      const { nftDutchAuctionERC20Bids, owner } = await loadFixture(
-        deployNFTDAFixture
-      );
+  describe("Upgrade", function () {
+    it("Should upgrade contract and return version number which is not present in previous contract", async function () {
+      const { nftDutchAuctionERC20Bids, nftDutchAuctionERC20Bids_v2 } =
+        await loadFixture(deployNFTDAUpgradeFixture);
 
-      console.log("OWNER: " + (await nftDutchAuctionERC20Bids.owner()));
-
-      expect(await nftDutchAuctionERC20Bids.owner()).to.equal(owner.address);
+      expect(await nftDutchAuctionERC20Bids_v2.getVersion()).to.equal(2);
     });
 
-    it("Should not allow initialize to be called more than once", async function () {
-      const { nftDutchAuctionERC20Bids, randomMusicNFT, tempoToken, owner } =
-        await loadFixture(deployNFTDAFixture);
+    it("Should allow multiple upgrades", async function () {
+      const { nftDutchAuctionERC20Bids, nftDutchAuctionERC20Bids_v2 } =
+        await loadFixture(deployNFTDAUpgradeFixture);
+
+      const NFTDutchAuction_v3 = await ethers.getContractFactory(
+        "NFTDutchAuctionERC20Bids"
+      );
+
+      const nftDutchAuctionERC20Bids_v3 = await upgrades.upgradeProxy(
+        nftDutchAuctionERC20Bids_v2.address,
+        NFTDutchAuction_v3
+      );
+      expect(nftDutchAuctionERC20Bids_v2.address).to.equal(
+        nftDutchAuctionERC20Bids_v3.address
+      );
+    });
+
+    it("Should have same address even after upgrade", async function () {
+      const { nftDutchAuctionERC20Bids, nftDutchAuctionERC20Bids_v2 } =
+        await loadFixture(deployNFTDAUpgradeFixture);
+
+      console.log(
+        "v1 address: " +
+          nftDutchAuctionERC20Bids.address +
+          " v2 address: " +
+          nftDutchAuctionERC20Bids_v2.address
+      );
+      expect(nftDutchAuctionERC20Bids.address).to.equal(
+        nftDutchAuctionERC20Bids_v2.address
+      );
+    });
+
+    it("Should not allow initialize to be called more than once after upgrade", async function () {
+      const { nftDutchAuctionERC20Bids_v2, randomMusicNFT, tempoToken, owner } =
+        await loadFixture(deployNFTDAUpgradeFixture);
 
       await expect(
-        nftDutchAuctionERC20Bids.initialize(
+        nftDutchAuctionERC20Bids_v2.initialize(
           tempoToken.address,
           randomMusicNFT.address,
           NFT_TOKEN_ID,
@@ -84,80 +125,27 @@ describe("NFTDutchAuctionERC20Bids", function () {
       ).to.be.revertedWith("Initializable: contract is already initialized");
     });
 
-    it("Should have no winner", async function () {
-      const { nftDutchAuctionERC20Bids } = await loadFixture(
-        deployNFTDAFixture
-      );
-
-      expect(await nftDutchAuctionERC20Bids.winner()).to.equal(
-        ethers.constants.AddressZero
-      );
-    });
-
-    it("Should not allow Auction creator to deploy contract if the NFT does not belong to them", async function () {
-      const { randomMusicNFT, tempoToken, account1 } = await loadFixture(
-        deployNFTDAFixture
-      );
-
-      //Mint NFT with tokenId 1 to account1
-      await expect(randomMusicNFT.mintNFT(account1.address, "Test URI"))
-        .to.emit(randomMusicNFT, "Transfer")
-        .withArgs(ethers.constants.AddressZero, account1.address, 1);
-
-      //Deploy NFT contract with account1's tokenId, should fail
-      const NFTDutchAuctionERC20Bids = await ethers.getContractFactory(
-        "NFTDutchAuctionERC20Bids"
-      );
-      await expect(
-        upgrades.deployProxy(NFTDutchAuctionERC20Bids, [
-          tempoToken.address,
-          randomMusicNFT.address,
-          1,
-          RESERVE_PRICE,
-          NUM_BLOCKS_AUCTION_OPEN,
-          OFFER_PRICE_DECREMENT,
-        ])
-      ).to.revertedWith(
-        "The NFT tokenId does not belong to the Auction's Owner"
-      );
-    });
-
-    it("Should have the initial price as per Dutch Auction formula", async function () {
-      const { nftDutchAuctionERC20Bids } = await loadFixture(
-        deployNFTDAFixture
-      );
-
-      const initialPrice =
-        RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
-
-      expect(await nftDutchAuctionERC20Bids.initialPrice()).to.equal(
-        initialPrice
-      );
-    });
-  });
-
-  describe("Bids", function () {
-    it("Should have expected current price after 5 blocks as per formula", async function () {
-      const { nftDutchAuctionERC20Bids } = await loadFixture(
-        deployNFTDAFixture
+    it("After upgrade, should have expected current price after 5 blocks as per formula", async function () {
+      const { nftDutchAuctionERC20Bids_v2 } = await loadFixture(
+        deployNFTDAUpgradeFixture
       );
 
       const initialPrice =
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
 
       const priceAfter5Blocks = initialPrice - 5 * OFFER_PRICE_DECREMENT;
-      //Mine 5 blocks, since 1 block was already mined
+      //Mine 2 blocks, since 3 blocks was already mined
       //when we approved the Auction contract for NFT Transfer
-      await mine(4);
+      await mine(2);
 
-      expect(await nftDutchAuctionERC20Bids.getCurrentPrice()).to.equal(
+      expect(await nftDutchAuctionERC20Bids_v2.getCurrentPrice()).to.equal(
         priceAfter5Blocks
       );
     });
 
-    it("Should reject low bids", async function () {
-      const { nftDutchAuctionERC20Bids, account1 } = await loadFixture(
-        deployNFTDAFixture
+    it("Should reject low bids even after upgrade", async function () {
+      const { nftDutchAuctionERC20Bids_v2, account1 } = await loadFixture(
+        deployNFTDAUpgradeFixture
       );
 
       //Mine 1 block, 1 already mined
@@ -169,23 +157,23 @@ describe("NFTDutchAuctionERC20Bids", function () {
       const lowBidPrice =
         RESERVE_PRICE +
         NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT -
-        OFFER_PRICE_DECREMENT * 5;
+        OFFER_PRICE_DECREMENT * 7;
 
       await expect(
-        nftDutchAuctionERC20Bids.connect(account1).bid(lowBidPrice)
+        nftDutchAuctionERC20Bids_v2.connect(account1).bid(lowBidPrice)
       ).to.be.revertedWith("The bid amount sent is not acceptable");
 
       //Test with an arbitrarily low value too
       await expect(
-        nftDutchAuctionERC20Bids.connect(account1).bid(50)
+        nftDutchAuctionERC20Bids_v2.connect(account1).bid(50)
       ).to.be.revertedWith("The bid amount sent is not acceptable");
     });
 
-    it("Should acknowledge bids higher than currentPrice but still fail if proper allowance is not set to the contract's address", async function () {
-      const { nftDutchAuctionERC20Bids, tempoToken, account1 } =
-        await loadFixture(deployNFTDAFixture);
-      //mine 5 blocks
-      await mine(5);
+    it("Even after upgrade, Should acknowledge bids higher than currentPrice but still fail if proper allowance is not set to the contract's address", async function () {
+      const { nftDutchAuctionERC20Bids_v2, tempoToken, account1 } =
+        await loadFixture(deployNFTDAUpgradeFixture);
+      //mine 1 block
+      await mine(1);
 
       const initialPrice =
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
@@ -194,7 +182,7 @@ describe("NFTDutchAuctionERC20Bids", function () {
 
       //Bid function should succeed
       await expect(
-        nftDutchAuctionERC20Bids.connect(account1).bid(highBidPrice)
+        nftDutchAuctionERC20Bids_v2.connect(account1).bid(highBidPrice)
       ).to.be.revertedWith(
         "Bid amount was accepted, but bid failed as not enough balance/allowance to transfer erc20 token TMP"
       );
@@ -202,20 +190,20 @@ describe("NFTDutchAuctionERC20Bids", function () {
       //Approve auction contract to spend less tokens than bid price, should be reverted with same error
       await tempoToken
         .connect(account1)
-        .approve(nftDutchAuctionERC20Bids.address, highBidPrice - 10);
+        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice - 10);
 
       await expect(
-        nftDutchAuctionERC20Bids.connect(account1).bid(highBidPrice)
+        nftDutchAuctionERC20Bids_v2.connect(account1).bid(highBidPrice)
       ).to.be.revertedWith(
         "Bid amount was accepted, but bid failed as not enough balance/allowance to transfer erc20 token TMP"
       );
     });
 
-    it("Should accept bids higher than currentPrice and set winner as bidder's address", async function () {
-      const { nftDutchAuctionERC20Bids, tempoToken, account1 } =
-        await loadFixture(deployNFTDAFixture);
-      //mine 5 blocks
-      await mine(5);
+    it("Should accept bids higher than currentPrice and set winner as bidder's address after upgrade", async function () {
+      const { nftDutchAuctionERC20Bids_v2, tempoToken, account1 } =
+        await loadFixture(deployNFTDAUpgradeFixture);
+      //mine 3 blocks, 2 already mined
+      await mine(3);
 
       const initialPrice =
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
@@ -225,21 +213,22 @@ describe("NFTDutchAuctionERC20Bids", function () {
       //Set allowance for auction contract to spend bid amount
       await tempoToken
         .connect(account1)
-        .approve(nftDutchAuctionERC20Bids.address, highBidPrice);
+        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice);
 
       //Bid function should succeed
-      expect(await nftDutchAuctionERC20Bids.connect(account1).bid(highBidPrice))
-        .to.not.be.reverted;
+      expect(
+        await nftDutchAuctionERC20Bids_v2.connect(account1).bid(highBidPrice)
+      ).to.not.be.reverted;
 
       //Winner should be account1
-      expect(await nftDutchAuctionERC20Bids.winner()).to.equal(
+      expect(await nftDutchAuctionERC20Bids_v2.winner()).to.equal(
         account1.address
       );
     });
 
-    it("Should reject bids after a winning bid is already accepted", async function () {
-      const { nftDutchAuctionERC20Bids, tempoToken, account1, account2 } =
-        await loadFixture(deployNFTDAFixture);
+    it("Upon upgrading, should reject bids after a winning bid is already accepted", async function () {
+      const { nftDutchAuctionERC20Bids_v2, tempoToken, account1, account2 } =
+        await loadFixture(deployNFTDAUpgradeFixture);
       //mine 5 blocks
       await mine(5);
 
@@ -251,21 +240,22 @@ describe("NFTDutchAuctionERC20Bids", function () {
       //Set allowance for auction contract to spend bid amount
       await tempoToken
         .connect(account1)
-        .approve(nftDutchAuctionERC20Bids.address, highBidPrice);
+        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice);
 
       //Bid function should succeed
-      expect(await nftDutchAuctionERC20Bids.connect(account1).bid(highBidPrice))
-        .to.not.be.reverted;
+      expect(
+        await nftDutchAuctionERC20Bids_v2.connect(account1).bid(highBidPrice)
+      ).to.not.be.reverted;
 
       //Bid should be rejected
       await expect(
-        nftDutchAuctionERC20Bids.connect(account2).bid(highBidPrice)
+        nftDutchAuctionERC20Bids_v2.connect(account2).bid(highBidPrice)
       ).to.be.revertedWith("Auction has already concluded");
     });
 
-    it("Bids should not be accepted after the auction expires", async function () {
-      const { nftDutchAuctionERC20Bids, account1, account2 } =
-        await loadFixture(deployNFTDAFixture);
+    it("Bids should not be accepted after the auction expires even after upgrade", async function () {
+      const { nftDutchAuctionERC20Bids_v2, account1, account2 } =
+        await loadFixture(deployNFTDAUpgradeFixture);
       //mine 5 blocks
       await mine(NUM_BLOCKS_AUCTION_OPEN + 1);
 
@@ -276,32 +266,32 @@ describe("NFTDutchAuctionERC20Bids", function () {
 
       //Bid function should fail with auction expired message
       await expect(
-        nftDutchAuctionERC20Bids.connect(account2).bid(highBidPrice)
+        nftDutchAuctionERC20Bids_v2.connect(account2).bid(highBidPrice)
       ).to.be.revertedWith("Auction expired");
     });
 
-    it("Should return reservePrice when max number of auction blocks have elapsed", async function () {
-      const { nftDutchAuctionERC20Bids } = await loadFixture(
-        deployNFTDAFixture
+    it("Should return reservePrice when max number of auction blocks have elapsed even after upgrade", async function () {
+      const { nftDutchAuctionERC20Bids_v2 } = await loadFixture(
+        deployNFTDAUpgradeFixture
       );
       //mine 10 blocks
       await mine(NUM_BLOCKS_AUCTION_OPEN);
       //Should return reserve price after 10 blocks are mined
-      expect(await nftDutchAuctionERC20Bids.getCurrentPrice()).to.equal(
+      expect(await nftDutchAuctionERC20Bids_v2.getCurrentPrice()).to.equal(
         RESERVE_PRICE
       );
 
       //Mine 5 more blocks
       await mine(5);
       //Should return reserve price after 15 blocks are mined
-      expect(await nftDutchAuctionERC20Bids.getCurrentPrice()).to.equal(
+      expect(await nftDutchAuctionERC20Bids_v2.getCurrentPrice()).to.equal(
         RESERVE_PRICE
       );
     });
 
-    it("Should send the accepted bid amount in TMP tokens from bidder's account to owner's account", async function () {
-      const { nftDutchAuctionERC20Bids, tempoToken, owner, account1 } =
-        await loadFixture(deployNFTDAFixture);
+    it("Even after upgrade, Should send the accepted bid amount in TMP tokens from bidder's account to owner's account", async function () {
+      const { nftDutchAuctionERC20Bids_v2, tempoToken, owner, account1 } =
+        await loadFixture(deployNFTDAUpgradeFixture);
       //mine 5 blocks
       await mine(5);
 
@@ -322,11 +312,12 @@ describe("NFTDutchAuctionERC20Bids", function () {
       //Set allowance for auction contract to spend bid amount
       await tempoToken
         .connect(account1)
-        .approve(nftDutchAuctionERC20Bids.address, highBidPrice);
+        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice);
 
       //Bid function should succeed
-      await expect(nftDutchAuctionERC20Bids.connect(account1).bid(highBidPrice))
-        .to.not.be.reverted;
+      await expect(
+        nftDutchAuctionERC20Bids_v2.connect(account1).bid(highBidPrice)
+      ).to.not.be.reverted;
 
       //Owner's TMP balance should be sum of previous balance & bid amount
       expect(await tempoToken.balanceOf(owner.address)).to.equal(
@@ -339,14 +330,14 @@ describe("NFTDutchAuctionERC20Bids", function () {
       );
     });
 
-    it("Should transfer the NFT from Owner's account to Bidder's account", async function () {
+    it("Should transfer the NFT from Owner's account to Bidder's account even after upgrade", async function () {
       const {
-        nftDutchAuctionERC20Bids,
+        nftDutchAuctionERC20Bids_v2,
         tempoToken,
         randomMusicNFT,
         owner,
         account1,
-      } = await loadFixture(deployNFTDAFixture);
+      } = await loadFixture(deployNFTDAUpgradeFixture);
       //mine 5 blocks
       await mine(5);
 
@@ -358,10 +349,12 @@ describe("NFTDutchAuctionERC20Bids", function () {
       //Set allowance for auction contract to spend bid amount
       await tempoToken
         .connect(account1)
-        .approve(nftDutchAuctionERC20Bids.address, highBidPrice);
+        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice);
 
       //Bid function should succeed and teansfer NFT from account1 to owner
-      await expect(nftDutchAuctionERC20Bids.connect(account1).bid(highBidPrice))
+      await expect(
+        nftDutchAuctionERC20Bids_v2.connect(account1).bid(highBidPrice)
+      )
         .to.emit(randomMusicNFT, "Transfer")
         .withArgs(owner.address, account1.address, NFT_TOKEN_ID);
 
@@ -372,9 +365,9 @@ describe("NFTDutchAuctionERC20Bids", function () {
       );
     });
 
-    it("Owner should still own the NFT after the auction expires if there is no winning bid", async function () {
-      const { nftDutchAuctionERC20Bids, randomMusicNFT, owner, account2 } =
-        await loadFixture(deployNFTDAFixture);
+    it("Owner should still own the NFT after the auction expires if there is no winning bid even after upgrade", async function () {
+      const { nftDutchAuctionERC20Bids_v2, randomMusicNFT, owner, account2 } =
+        await loadFixture(deployNFTDAUpgradeFixture);
       //mine 5 blocks
       await mine(NUM_BLOCKS_AUCTION_OPEN + 1);
 
@@ -385,7 +378,7 @@ describe("NFTDutchAuctionERC20Bids", function () {
 
       //Bid function should fail with auction expired message
       await expect(
-        nftDutchAuctionERC20Bids.connect(account2).bid(highBidPrice)
+        nftDutchAuctionERC20Bids_v2.connect(account2).bid(highBidPrice)
       ).to.be.revertedWith("Auction expired");
 
       //NFT should still belong to owner
