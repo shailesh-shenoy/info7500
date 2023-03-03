@@ -1,7 +1,7 @@
-import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { mine } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { NFTDutchAuctionERC20Bids } from "../typechain-types/contracts/NFTDutchAuctionERC20Bids";
 
 describe("NFTDutchAuctionERC20Bids", function () {
@@ -33,13 +33,16 @@ describe("NFTDutchAuctionERC20Bids", function () {
       "NFTDutchAuctionERC20Bids"
     );
 
-    const nftDutchAuctionERC20Bids = await NFTDutchAuctionERC20Bids.deploy(
-      tempoToken.address,
-      randomMusicNFT.address,
-      NFT_TOKEN_ID,
-      RESERVE_PRICE,
-      NUM_BLOCKS_AUCTION_OPEN,
-      OFFER_PRICE_DECREMENT
+    const nftDutchAuctionERC20Bids = await upgrades.deployProxy(
+      NFTDutchAuctionERC20Bids,
+      [
+        tempoToken.address,
+        randomMusicNFT.address,
+        NFT_TOKEN_ID,
+        RESERVE_PRICE,
+        NUM_BLOCKS_AUCTION_OPEN,
+        OFFER_PRICE_DECREMENT,
+      ]
     );
 
     randomMusicNFT.approve(nftDutchAuctionERC20Bids.address, NFT_TOKEN_ID);
@@ -59,6 +62,8 @@ describe("NFTDutchAuctionERC20Bids", function () {
       const { nftDutchAuctionERC20Bids, owner } = await loadFixture(
         deployNFTDAFixture
       );
+
+      console.log("OWNER: " + (await nftDutchAuctionERC20Bids.owner()));
 
       expect(await nftDutchAuctionERC20Bids.owner()).to.equal(owner.address);
     });
@@ -88,14 +93,14 @@ describe("NFTDutchAuctionERC20Bids", function () {
         "NFTDutchAuctionERC20Bids"
       );
       await expect(
-        NFTDutchAuctionERC20Bids.deploy(
+        upgrades.deployProxy(NFTDutchAuctionERC20Bids, [
           tempoToken.address,
           randomMusicNFT.address,
           1,
           RESERVE_PRICE,
           NUM_BLOCKS_AUCTION_OPEN,
-          OFFER_PRICE_DECREMENT
-        )
+          OFFER_PRICE_DECREMENT,
+        ])
       ).to.revertedWith(
         "The NFT tokenId does not belong to the Auction's Owner"
       );
