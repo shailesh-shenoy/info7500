@@ -1,19 +1,81 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { mine } from "@nomicfoundation/hardhat-network-helpers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
+import { BigNumber } from "ethers";
 import { ethers, upgrades } from "hardhat";
+import { TempoToken } from "../typechain-types";
 import { NFTDutchAuctionERC20Bids } from "../typechain-types/contracts/NFTDutchAuctionERC20Bids";
+
+async function getPermitSignature(
+  signer: SignerWithAddress,
+  token: TempoToken,
+  spender: string,
+  value: string,
+  deadline: BigNumber
+) {
+  const [nonce, name, version, chainId] = await Promise.all([
+    token.nonces(signer.address),
+    token.name(),
+    "1",
+    signer.getChainId(),
+  ]);
+
+  return ethers.utils.splitSignature(
+    await signer._signTypedData(
+      {
+        name,
+        version,
+        chainId,
+        verifyingContract: token.address,
+      },
+      {
+        Permit: [
+          {
+            name: "owner",
+            type: "address",
+          },
+          {
+            name: "spender",
+            type: "address",
+          },
+          {
+            name: "value",
+            type: "uint256",
+          },
+          {
+            name: "nonce",
+            type: "uint256",
+          },
+          {
+            name: "deadline",
+            type: "uint256",
+          },
+        ],
+      },
+      {
+        owner: signer.address,
+        spender,
+        value,
+        nonce,
+        deadline,
+      }
+    )
+  );
+}
 
 describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
 
-  const NUM_BLOCKS_AUCTION_OPEN: number = 10;
+  const NUM_BLOCKS_AUCTION_OPEN: number = 12;
   const RESERVE_PRICE: number = 500;
   const OFFER_PRICE_DECREMENT: number = 50;
   const NFT_TOKEN_ID: number = 0;
   const TOKEN_URI = "https://www.youtube.com/watch?v=pXRviuL6vMY";
+  const DEADLINE = ethers.constants.MaxUint256;
+  const PERMIT_ALLOWANCE = "10000";
 
   async function deployNFTDAUpgradeFixture() {
     // Contracts are deployed using the first signer/account by default
@@ -51,6 +113,24 @@ describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
     const nftDutchAuctionERC20Bids_v2 = await upgrades.upgradeProxy(
       nftDutchAuctionERC20Bids.address,
       NFTDutchAuctionERC20Bids_v2
+    );
+
+    const { v, r, s } = await getPermitSignature(
+      account1,
+      tempoToken,
+      nftDutchAuctionERC20Bids.address,
+      PERMIT_ALLOWANCE,
+      DEADLINE
+    );
+
+    tempoToken.permit(
+      account1.address,
+      nftDutchAuctionERC20Bids.address,
+      PERMIT_ALLOWANCE,
+      DEADLINE,
+      v,
+      r,
+      s
     );
 
     await randomMusicNFT.approve(
@@ -134,9 +214,8 @@ describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
 
       const priceAfter5Blocks = initialPrice - 5 * OFFER_PRICE_DECREMENT;
-      //Mine 2 blocks, since 3 blocks was already mined
-      //when we approved the Auction contract for NFT Transfer
-      await mine(2);
+
+      await mine(1);
 
       expect(await nftDutchAuctionERC20Bids_v2.getCurrentPrice()).to.equal(
         priceAfter5Blocks
@@ -169,11 +248,11 @@ describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
       ).to.be.revertedWith("The bid amount sent is not acceptable");
     });
 
-    it("Even after upgrade, Should acknowledge bids higher than currentPrice but still fail if proper allowance is not set to the contract's address", async function () {
-      const { nftDutchAuctionERC20Bids_v2, tempoToken, account1 } =
+    it("Even after upgrade, Should not allow unauthorized tokens to bid", async function () {
+      const { nftDutchAuctionERC20Bids, tempoToken, account1, account2 } =
         await loadFixture(deployNFTDAUpgradeFixture);
-      //mine 1 block
-      await mine(1);
+      //mine 5 blocks
+      await mine(5);
 
       const initialPrice =
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
@@ -182,18 +261,13 @@ describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
 
       //Bid function should succeed
       await expect(
-        nftDutchAuctionERC20Bids_v2.connect(account1).bid(highBidPrice)
+        nftDutchAuctionERC20Bids.connect(account2).bid(highBidPrice)
       ).to.be.revertedWith(
         "Bid amount was accepted, but bid failed as not enough balance/allowance to transfer erc20 token TMP"
       );
 
-      //Approve auction contract to spend less tokens than bid price, should be reverted with same error
-      await tempoToken
-        .connect(account1)
-        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice - 10);
-
       await expect(
-        nftDutchAuctionERC20Bids_v2.connect(account1).bid(highBidPrice)
+        nftDutchAuctionERC20Bids.connect(account2).bid(highBidPrice)
       ).to.be.revertedWith(
         "Bid amount was accepted, but bid failed as not enough balance/allowance to transfer erc20 token TMP"
       );
@@ -209,11 +283,6 @@ describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
       //Get price after 4 blocks
       const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
-
-      //Set allowance for auction contract to spend bid amount
-      await tempoToken
-        .connect(account1)
-        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice);
 
       //Bid function should succeed
       expect(
@@ -236,11 +305,6 @@ describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
       //Get price after 4 blocks
       const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
-
-      //Set allowance for auction contract to spend bid amount
-      await tempoToken
-        .connect(account1)
-        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice);
 
       //Bid function should succeed
       expect(
@@ -309,11 +373,6 @@ describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
       //Get price after 4 blocks
       const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
 
-      //Set allowance for auction contract to spend bid amount
-      await tempoToken
-        .connect(account1)
-        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice);
-
       //Bid function should succeed
       await expect(
         nftDutchAuctionERC20Bids_v2.connect(account1).bid(highBidPrice)
@@ -345,11 +404,6 @@ describe("NFTDutchAuctionERC20Bids_Upgrade", function () {
         RESERVE_PRICE + NUM_BLOCKS_AUCTION_OPEN * OFFER_PRICE_DECREMENT;
       //Get price after 4 blocks
       const highBidPrice = initialPrice - OFFER_PRICE_DECREMENT * 4;
-
-      //Set allowance for auction contract to spend bid amount
-      await tempoToken
-        .connect(account1)
-        .approve(nftDutchAuctionERC20Bids_v2.address, highBidPrice);
 
       //Bid function should succeed and teansfer NFT from account1 to owner
       await expect(
