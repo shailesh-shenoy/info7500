@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/interfaces/IERC721.sol";
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "./IERC20Permit.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -20,7 +20,7 @@ contract NFTDutchAuctionERC20Bids is
     uint256 public offerPriceDecrement;
 
     IERC721 internal nft;
-    IERC20 internal tmpToken;
+    IERC20Permit internal tmpToken;
     uint256 public startBlock;
     uint256 public initialPrice;
     address public winner;
@@ -44,7 +44,7 @@ contract NFTDutchAuctionERC20Bids is
         offerPriceDecrement = _offerPriceDecrement;
 
         nft = IERC721(erc721TokenAddress);
-        tmpToken = IERC20(erc20TokenAddress);
+        tmpToken = IERC20Permit(erc20TokenAddress);
 
         require(
             nft.ownerOf(_nftTokenId) == owner(),

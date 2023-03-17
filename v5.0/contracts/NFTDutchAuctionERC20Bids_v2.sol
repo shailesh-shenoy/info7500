@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/interfaces/IERC721.sol";
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "./IERC20Permit.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -20,7 +20,7 @@ contract NFTDutchAuctionERC20Bids_v2 is
     uint256 public offerPriceDecrement;
 
     IERC721 internal nft;
-    IERC20 internal tmpToken;
+    IERC20Permit internal tmpToken;
     uint256 public startBlock;
     uint256 public initialPrice;
     address public winner;
@@ -44,7 +44,7 @@ contract NFTDutchAuctionERC20Bids_v2 is
         offerPriceDecrement = _offerPriceDecrement;
 
         nft = IERC721(erc721TokenAddress);
-        tmpToken = IERC20(erc20TokenAddress);
+        tmpToken = IERC20Permit(erc20TokenAddress);
 
         require(
             nft.ownerOf(_nftTokenId) == owner(),
@@ -65,10 +65,6 @@ contract NFTDutchAuctionERC20Bids_v2 is
         } else {
             return initialPrice - (blocksElapsed * offerPriceDecrement);
         }
-    }
-
-    function getVersion() public pure returns (uint8) {
-        return 2;
     }
 
     function _authorizeUpgrade(
@@ -105,5 +101,9 @@ contract NFTDutchAuctionERC20Bids_v2 is
         nft.transferFrom(owner(), winner, nftTokenId);
 
         return winner;
+    }
+
+    function getVersion() public pure returns (uint8) {
+        return 2;
     }
 }
