@@ -12,15 +12,15 @@ import './tasks/deploy';
 dotenv.config();
 
 const config: HardhatUserConfig = {
-  solidity: '0.8.4',
+  solidity: '0.8.9',
   paths: {
     artifacts: './frontend/src/artifacts'
   },
   networks: {
     hardhat: {
       mining: {
-        auto: false,
-        interval: 15000
+        auto: true,
+        interval: 1000
       }
     },
     ropsten: {
