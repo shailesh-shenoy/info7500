@@ -1,4 +1,4 @@
-import { Button, Flex, Heading } from '@chakra-ui/react';
+import { Flex, Heading } from '@chakra-ui/react';
 import ConnectMetamask from './ConnectMetamask';
 
 export default function Header() {

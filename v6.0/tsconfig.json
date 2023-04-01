@@ -5,6 +5,7 @@
     "strict": true,
     "esModuleInterop": true,
     "outDir": "dist",
+    "forceConsistentCasingInFileNames": true,
     "declaration": true
   },
   "include": ["./tasks", "./test", "./typechain"],

@@ -2,23 +2,13 @@ import { useEffect } from 'react';
 
 import { useWeb3React } from '@web3-react/core';
 import { Web3Provider } from '@ethersproject/providers';
-import { Box, Button, Text, useToast } from '@chakra-ui/react';
+import { Box, Button, useToast } from '@chakra-ui/react';
 import { injected } from '../utils/connectors';
-import { UserRejectedRequestError } from '@web3-react/injected-connector';
 import { formatAddress } from '../utils/helpers';
 
 const ConnectMetamask = () => {
-  const {
-    chainId,
-    account,
-    activate,
-    deactivate,
-    setError,
-    active,
-    library,
-    connector,
-    error
-  } = useWeb3React<Web3Provider>();
+  const { chainId, account, activate, deactivate, active, library, connector } =
+    useWeb3React<Web3Provider>();
 
   const toast = useToast();
 
