@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { useWeb3React } from '@web3-react/core';
 import { Web3Provider } from '@ethersproject/providers';
-import { Box, Button, Text } from '@chakra-ui/react';
+import { Box, Button, Text, useToast } from '@chakra-ui/react';
 import { injected } from '../utils/connectors';
 import { UserRejectedRequestError } from '@web3-react/injected-connector';
 import { formatAddress } from '../utils/helpers';
@@ -16,19 +16,23 @@ const ConnectMetamask = () => {
     setError,
     active,
     library,
-    connector
+    connector,
+    error
   } = useWeb3React<Web3Provider>();
+
+  const toast = useToast();
 
   const onClickConnect = () => {
     activate(
       injected,
       (error) => {
-        if (error instanceof UserRejectedRequestError) {
-          // ignore user rejected error
-          console.log('user refused');
-        } else {
-          setError(error);
-        }
+        toast({
+          title: 'Error',
+          description: error?.message,
+          status: 'error',
+          duration: 9000,
+          isClosable: true
+        });
       },
       false
     );
@@ -43,7 +47,7 @@ const ConnectMetamask = () => {
   });
 
   return (
-    <div>
+    <Box>
       {active && typeof account === 'string' ? (
         <Button
           type="button"
@@ -54,16 +58,11 @@ const ConnectMetamask = () => {
           Account: {formatAddress(account, 4)}
         </Button>
       ) : (
-        <Button
-          type="button"
-          colorScheme="green"
-          w="100%"
-          onClick={onClickConnect}
-        >
+        <Button type="button" colorScheme="green" onClick={onClickConnect}>
           Connect MetaMask
         </Button>
       )}
-    </div>
+    </Box>
   );
 };
 

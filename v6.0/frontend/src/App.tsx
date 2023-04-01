@@ -8,11 +8,14 @@ import {
   Tabs
 } from '@chakra-ui/react';
 import Header from './components/Header';
+import Deployment from './components/Deployment';
+import ContractInfo from './components/ContractInfo';
+import Bid from './components/Bid';
 
 function App() {
   return (
     <Box bg="gray.900" minHeight="100%" py={8}>
-      <Container bg="gray.100" maxW="4xl" rounded="2xl" minHeight="90%">
+      <Container bg="gray.100" maxW="4xl" rounded="2xl" minHeight="80vh">
         <Header />
         <Tabs isFitted variant="enclosed-colored">
           <TabList mb="1em">
@@ -22,13 +25,13 @@ function App() {
           </TabList>
           <TabPanels>
             <TabPanel>
-              <p>one!</p>
+              <Deployment />
             </TabPanel>
             <TabPanel>
-              <p>two!</p>
+              <ContractInfo />
             </TabPanel>
             <TabPanel>
-              <p>three!</p>
+              <Bid />
             </TabPanel>
           </TabPanels>
         </Tabs>
