@@ -18,7 +18,6 @@ import { Contract, Signer, ethers } from 'ethers';
 import { useEffect, useState } from 'react';
 
 import BasicDutchAuctionArtifact from '../artifacts/contracts/BasicDutchAuction.sol/BasicDutchAuction.json';
-import { createFalse } from 'typescript';
 
 export default function Deployment() {
   const [reservePrice, setReservePrice] = useState('');

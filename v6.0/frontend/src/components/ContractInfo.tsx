@@ -1,6 +1,5 @@
 import {
   Button,
-  Container,
   FormControl,
   FormHelperText,
   FormLabel,
@@ -9,12 +8,11 @@ import {
   InputGroup,
   InputRightAddon,
   Stack,
-  Text,
   useToast
 } from '@chakra-ui/react';
 import { Web3Provider } from '@ethersproject/providers';
 import { useWeb3React } from '@web3-react/core';
-import { Contract, Signer, ethers } from 'ethers';
+import { Contract, Signer } from 'ethers';
 import { useEffect, useState } from 'react';
 
 import BasicDutchAuctionArtifact from '../artifacts/contracts/BasicDutchAuction.sol/BasicDutchAuction.json';
