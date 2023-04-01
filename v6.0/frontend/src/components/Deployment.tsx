@@ -8,7 +8,6 @@ import {
   Input,
   InputGroup,
   InputRightAddon,
-  SimpleGrid,
   Stack,
   Text,
   useToast
