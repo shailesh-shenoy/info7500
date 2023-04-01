@@ -1,5 +1,6 @@
 import {
   Button,
+  Container,
   FormControl,
   FormHelperText,
   FormLabel,
@@ -7,7 +8,9 @@ import {
   Input,
   InputGroup,
   InputRightAddon,
+  SimpleGrid,
   Stack,
+  Text,
   useToast
 } from '@chakra-ui/react';
 import { Web3Provider } from '@ethersproject/providers';
@@ -16,11 +19,14 @@ import { Contract, Signer, ethers } from 'ethers';
 import { useEffect, useState } from 'react';
 
 import BasicDutchAuctionArtifact from '../artifacts/contracts/BasicDutchAuction.sol/BasicDutchAuction.json';
+import { createFalse } from 'typescript';
 
 export default function Deployment() {
   const [reservePrice, setReservePrice] = useState('');
   const [auctionDuration, setAuctionDuration] = useState('');
   const [decrementPerBlock, setDecrementPerBlock] = useState('');
+  const [initialPrice, setInitialPrice] = useState('');
+  const [deploying, setDeploying] = useState<boolean>(false);
 
   const toast = useToast();
 
@@ -39,6 +45,22 @@ export default function Deployment() {
 
     setSigner(library.getSigner());
   }, [library]);
+
+  useEffect((): void => {
+    if (!basicDutchAuctionContract) {
+      return;
+    }
+
+    async function getInitialPrice(): Promise<void> {
+      const _initialPrice = await basicDutchAuctionContract?.initialPrice();
+
+      if (_initialPrice.toString() !== initialPrice) {
+        setInitialPrice(_initialPrice.toString());
+      }
+    }
+
+    getInitialPrice();
+  }, [basicDutchAuctionContract, initialPrice]);
 
   return (
     <Stack direction="column" spacing="6">
@@ -102,18 +124,36 @@ export default function Deployment() {
           colorScheme="blue"
           type="submit"
           width="10rem"
+          isDisabled={!active}
+          isLoading={deploying}
         >
           Deploy
         </Button>
       </form>
+      <Container maxW="40rem" bg="gray.200" p={6}>
+        <Text fontWeight="bold">Contract Address:</Text>
+        <Text>
+          {basicDutchAuctioContractAddr?.length > 0
+            ? basicDutchAuctioContractAddr
+            : 'Contract not deployed'}
+        </Text>
+        <Text mt={6} fontWeight="bold">
+          Initial Price:
+        </Text>
+        <Text>
+          {initialPrice?.length > 0 ? initialPrice : 'Contract not deployed'}
+        </Text>
+      </Container>
     </Stack>
   );
 
   async function handleDeploy(event: any) {
     event.preventDefault();
+    setDeploying(true);
 
     // only deploy the Greeter contract one time, when a signer is defined
     if (basicDutchAuctionContract || !signer) {
+      setDeploying(false);
       return;
     }
 
@@ -130,6 +170,11 @@ export default function Deployment() {
         decrementPerBlock
       );
       await _basicDutchAuctionContract.deployed();
+      const _initialPrice = await _basicDutchAuctionContract?.initialPrice();
+
+      if (_initialPrice.toString() !== initialPrice) {
+        setInitialPrice(_initialPrice.toString());
+      }
       setBasicDutchAuctionContract(_basicDutchAuctionContract);
       setBasicDutchAuctionContractAddr(_basicDutchAuctionContract.address);
       toast({
@@ -143,11 +188,13 @@ export default function Deployment() {
       console.log(error);
       toast({
         title: 'Error while deploying Basic Dutch Auction contract',
-        description: error?.message,
+        description: error?.message?.substring(0, 120),
         status: 'error',
         duration: 9000,
         isClosable: true
       });
+    } finally {
+      setDeploying(false);
     }
   }
 }
