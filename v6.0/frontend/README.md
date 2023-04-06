@@ -1,46 +1,18 @@
-# Getting Started with Create React App
+###Basic dutch auction
+###Hosted at IPNS url:
+https://ipfs.io/ipns/k51qzi5uqu5dk1cgyrxi5ctknxw1zwhyp4kz8viu2ocj1a9kml6ze61txfc4ao
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This application demonstrates working of a simple web3 application - A Basic Dutch Auction
 
-## Available Scripts
+The BasicDutchAuction.sol contract works as follows:
+The seller instantiates a DutchAuction contract to manage the auction of a single, physical item at a single auction event. The contract is initialized with the following parameters:
+reservePrice: the minimum amount of wei that the seller is willing to accept for the item
+numBlocksAuctionOpen: the number of blockchain blocks that the auction is open for
+offerPriceDecrement: the amount of wei that the auction price should decrease by during each subsequent block.
+The seller is the owner of the contract.
+The auction begins at the block in which the contract is created.
+The initial price of the item is derived from reservePrice, numBlocksAuctionOpen, and offerPriceDecrement: initialPrice = reservePrice + numBlocksAuctionOpen\*offerPriceDecrement
+A bid can be submitted by any Ethereum externally-owned account.
+The first bid processed by the contract that sends wei greater than or equal to the current price is the winner. The wei should be transferred immediately to the seller and the contract should not accept any more bids. All bids besides the winning bid should be refunded immediately.
 
-In the project directory, you can run:
-
-### `yarn start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
-
-### `yarn test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `yarn build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `yarn eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+The react UI in the /frontend folder provides an interface to interact with the smart contracts on localhost (via hardhat), or sepholia testnet. Supports Metamask wallet.
